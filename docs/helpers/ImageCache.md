@@ -11,6 +11,15 @@ The **ImageCache** provides methods and tools to cache images in a temporary loc
 	
 	// Enable in-memory caching
 	ImageCache.Instance.MaxMemoryCacheCount = 100;
+	
+	// Add authorization header when getting images from server.
+	public HttpHelperRequest HttpHelperRequestHandler(HttpHelperRequest request)
+	{
+		 request.Headers.Authorization = new Windows.Web.Http.Headers.HttpCredentialsHeaderValue("Basic", token);
+		 return request;
+	}
+	// Set a custom handler to manipulate HttpHelperRequests before they are sent.
+	ImageCache.Instance.HttpHelperRequestHandlerDelegate = HttpHelperRequestHandler;
 
 	var distantUri = new Uri("http://www.myserver.com/image.jpg");
 
