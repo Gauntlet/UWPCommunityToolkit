@@ -12,6 +12,7 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.Foundation.Metadata;
 using Windows.UI.Xaml;
@@ -31,21 +32,36 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
         private Menu _parentMenu;
         private bool _isOpened;
         private MenuFlyout _menuFlyout;
+        private Rect _bounds;
 
         internal Button FlyoutButton { get; private set; }
 
         /// <summary>
         /// Identifies the <see cref="Header"/> dependency property.
         /// </summary>
-        public static readonly DependencyProperty HeaderProperty = DependencyProperty.Register(nameof(Header), typeof(string), typeof(MenuItem), new PropertyMetadata(default(string)));
+        public static readonly DependencyProperty HeaderProperty = DependencyProperty.Register(nameof(Header), typeof(object), typeof(MenuItem), new PropertyMetadata(null));
 
         /// <summary>
         /// Gets or sets the title to appear in the title bar
         /// </summary>
-        public string Header
+        public object Header
         {
-            get { return (string)GetValue(HeaderProperty); }
+            get { return (object)GetValue(HeaderProperty); }
             set { SetValue(HeaderProperty, value); }
+        }
+
+        /// <summary>
+        /// Identifies the <see cref="HeaderTemplate"/> dependency property.
+        /// </summary>
+        public static readonly DependencyProperty HeaderTemplateProperty = DependencyProperty.Register(nameof(HeaderTemplate), typeof(DataTemplate), typeof(MenuItem), new PropertyMetadata(null));
+
+        /// <summary>
+        /// Gets or sets the data template that is used to display the content of the MenuItem
+        /// </summary>
+        public DataTemplate HeaderTemplate
+        {
+            get { return (DataTemplate)GetValue(HeaderTemplateProperty); }
+            set { SetValue(HeaderTemplateProperty, value); }
         }
 
         /// <summary>
@@ -73,12 +89,20 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
             IsFocusEngagementEnabled = true;
         }
 
+        internal bool ContainsPoint(Point point)
+        {
+            return _bounds.Contains(point);
+        }
+
         /// <summary>
         /// This method is used to show the menu for current item
         /// </summary>
         public void ShowMenu()
         {
-            FlyoutButton?.Flyout?.ShowAt(FlyoutButton);
+            Point location = _menuFlyout.Placement == FlyoutPlacementMode.Bottom
+                ? new Point(0, FlyoutButton.ActualHeight)
+                : new Point(FlyoutButton.ActualWidth, 0);
+            _menuFlyout.ShowAt(FlyoutButton, location);
         }
 
         /// <summary>
@@ -86,7 +110,7 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
         /// </summary>
         public void HideMenu()
         {
-            FlyoutButton?.Flyout?.Hide();
+            _menuFlyout?.Hide();
         }
 
         /// <inheritdoc />
@@ -97,6 +121,7 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
             IsOpened = false;
 
             Items.VectorChanged -= Items_VectorChanged;
+            LayoutUpdated -= MenuItem_LayoutUpdated;
 
             if (_menuFlyout == null)
             {
@@ -117,14 +142,15 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
                     ? FlyoutPlacementMode.Bottom
                     : FlyoutPlacementMode.Right;
 
+                FlyoutButton.Flyout = _menuFlyout;
+
+                LayoutUpdated += MenuItem_LayoutUpdated;
                 _menuFlyout.Opened += MenuFlyout_Opened;
                 _menuFlyout.Closed += MenuFlyout_Closed;
                 FlyoutButton.PointerExited += FlyoutButton_PointerExited;
 
                 _menuFlyout.MenuFlyoutPresenterStyle = _parentMenu.MenuFlyoutStyle;
                 ReAddItemsToFlyout();
-
-                FlyoutButton.Flyout = _menuFlyout;
 
                 if (_isAccessKeySupported)
                 {
@@ -134,6 +160,16 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
             }
 
             base.OnApplyTemplate();
+        }
+
+        private void MenuItem_LayoutUpdated(object sender, object e)
+        {
+            var ttv = TransformToVisual(Window.Current.Content);
+            Point screenCoords = ttv.TransformPoint(new Point(0, 0));
+            _bounds.X = screenCoords.X;
+            _bounds.Y = screenCoords.Y;
+            _bounds.Width = ActualWidth;
+            _bounds.Height = ActualHeight;
         }
 
         internal IEnumerable<MenuFlyoutItemBase> GetMenuFlyoutItems()
@@ -292,6 +328,7 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
         protected override void OnTapped(TappedRoutedEventArgs e)
         {
             _parentMenu.SelectedMenuItem = this;
+            ShowMenu();
             base.OnTapped(e);
         }
 
